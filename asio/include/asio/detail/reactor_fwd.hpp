@@ -24,6 +24,8 @@ namespace detail {
 typedef class null_reactor reactor;
 #elif defined(ASIO_HAS_IOCP)
 typedef class select_reactor reactor;
+#elif defined(ASIO_HAS_IO_URING)
+typedef class io_uring_reactor reactor;
 #elif defined(ASIO_HAS_EPOLL)
 typedef class epoll_reactor reactor;
 #elif defined(ASIO_HAS_KQUEUE)

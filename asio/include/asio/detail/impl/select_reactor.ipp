@@ -19,6 +19,7 @@
 
 #if defined(ASIO_HAS_IOCP) \
   || (!defined(ASIO_HAS_DEV_POLL) \
+      && !defined(ASIO_HAS_IO_URING) \
       && !defined(ASIO_HAS_EPOLL) \
       && !defined(ASIO_HAS_KQUEUE) \
       && !defined(ASIO_WINDOWS_RUNTIME))
@@ -331,6 +332,7 @@ void select_reactor::cancel_ops_unlocked(socket_type descriptor,
 
 #endif // defined(ASIO_HAS_IOCP)
        //   || (!defined(ASIO_HAS_DEV_POLL)
+       //       && !defined(ASIO_HAS_IO_URING)
        //       && !defined(ASIO_HAS_EPOLL)
        //       && !defined(ASIO_HAS_KQUEUE))
        //       && !defined(ASIO_WINDOWS_RUNTIME))

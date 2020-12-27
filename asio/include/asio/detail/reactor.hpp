@@ -17,7 +17,9 @@
 
 #include "asio/detail/reactor_fwd.hpp"
 
-#if defined(ASIO_HAS_EPOLL)
+#if defined(ASIO_HAS_IO_URING)
+# include "asio/detail/io_uring_reactor.hpp"
+#elif defined(ASIO_HAS_EPOLL)
 # include "asio/detail/epoll_reactor.hpp"
 #elif defined(ASIO_HAS_KQUEUE)
 # include "asio/detail/kqueue_reactor.hpp"

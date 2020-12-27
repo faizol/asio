@@ -17,7 +17,7 @@
 
 #include "asio/detail/config.hpp"
 
-#if defined(ASIO_HAS_EPOLL)
+#if defined(ASIO_HAS_EPOLL) && !defined(ASIO_HAS_IO_URING)
 
 #include "asio/detail/atomic_count.hpp"
 #include "asio/detail/conditionally_enabled_mutex.hpp"
@@ -261,6 +261,6 @@ private:
 # include "asio/detail/impl/epoll_reactor.ipp"
 #endif // defined(ASIO_HEADER_ONLY)
 
-#endif // defined(ASIO_HAS_EPOLL)
+#endif // defined(ASIO_HAS_EPOLL) && !defined(ASIO_HAS_IO_URING)
 
 #endif // ASIO_DETAIL_EPOLL_REACTOR_HPP

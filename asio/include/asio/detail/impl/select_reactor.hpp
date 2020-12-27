@@ -19,6 +19,7 @@
 
 #if defined(ASIO_HAS_IOCP) \
   || (!defined(ASIO_HAS_DEV_POLL) \
+      && !defined(ASIO_HAS_IO_URING) \
       && !defined(ASIO_HAS_EPOLL) \
       && !defined(ASIO_HAS_KQUEUE) \
       && !defined(ASIO_WINDOWS_RUNTIME))
@@ -93,6 +94,7 @@ void select_reactor::move_timer(timer_queue<Time_Traits>& queue,
 
 #endif // defined(ASIO_HAS_IOCP)
        //   || (!defined(ASIO_HAS_DEV_POLL)
+       //       && !defined(ASIO_HAS_IO_URING)
        //       && !defined(ASIO_HAS_EPOLL)
        //       && !defined(ASIO_HAS_KQUEUE)
        //       && !defined(ASIO_WINDOWS_RUNTIME))

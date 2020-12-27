@@ -1,6 +1,6 @@
 //
-// detail/impl/epoll_reactor.hpp
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// detail/impl/io_uring_reactor.hpp
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
 // Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
@@ -8,14 +8,14 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 
-#ifndef ASIO_DETAIL_IMPL_EPOLL_REACTOR_HPP
-#define ASIO_DETAIL_IMPL_EPOLL_REACTOR_HPP
+#ifndef ASIO_DETAIL_IMPL_IO_URING_REACTOR_HPP
+#define ASIO_DETAIL_IMPL_IO_URING_REACTOR_HPP
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 # pragma once
 #endif // defined(_MSC_VER) && (_MSC_VER >= 1200)
 
-#if defined(ASIO_HAS_EPOLL) && !defined(ASIO_HAS_IO_URING)
+#if defined(ASIO_HAS_IO_URING)
 
 #include "asio/detail/push_options.hpp"
 
@@ -23,19 +23,19 @@ namespace asio {
 namespace detail {
 
 template <typename Time_Traits>
-void epoll_reactor::add_timer_queue(timer_queue<Time_Traits>& queue)
+void io_uring_reactor::add_timer_queue(timer_queue<Time_Traits>& queue)
 {
   do_add_timer_queue(queue);
 }
 
 template <typename Time_Traits>
-void epoll_reactor::remove_timer_queue(timer_queue<Time_Traits>& queue)
+void io_uring_reactor::remove_timer_queue(timer_queue<Time_Traits>& queue)
 {
   do_remove_timer_queue(queue);
 }
 
 template <typename Time_Traits>
-void epoll_reactor::schedule_timer(timer_queue<Time_Traits>& queue,
+void io_uring_reactor::schedule_timer(timer_queue<Time_Traits>& queue,
     const typename Time_Traits::time_type& time,
     typename timer_queue<Time_Traits>::per_timer_data& timer, wait_op* op)
 {
@@ -54,7 +54,7 @@ void epoll_reactor::schedule_timer(timer_queue<Time_Traits>& queue,
 }
 
 template <typename Time_Traits>
-std::size_t epoll_reactor::cancel_timer(timer_queue<Time_Traits>& queue,
+std::size_t io_uring_reactor::cancel_timer(timer_queue<Time_Traits>& queue,
     typename timer_queue<Time_Traits>::per_timer_data& timer,
     std::size_t max_cancelled)
 {
@@ -67,7 +67,7 @@ std::size_t epoll_reactor::cancel_timer(timer_queue<Time_Traits>& queue,
 }
 
 template <typename Time_Traits>
-void epoll_reactor::move_timer(timer_queue<Time_Traits>& queue,
+void io_uring_reactor::move_timer(timer_queue<Time_Traits>& queue,
     typename timer_queue<Time_Traits>::per_timer_data& target,
     typename timer_queue<Time_Traits>::per_timer_data& source)
 {
@@ -84,6 +84,6 @@ void epoll_reactor::move_timer(timer_queue<Time_Traits>& queue,
 
 #include "asio/detail/pop_options.hpp"
 
-#endif // defined(ASIO_HAS_EPOLL) && !defined(ASIO_HAS_IO_URING)
+#endif // defined(ASIO_HAS_IO_URING)
 
-#endif // ASIO_DETAIL_IMPL_EPOLL_REACTOR_HPP
+#endif // ASIO_DETAIL_IMPL_IO_URING_REACTOR_HPP
