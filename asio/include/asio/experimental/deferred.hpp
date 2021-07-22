@@ -32,33 +32,165 @@ struct is_deferred : false_type
 {
 };
 
+/// Type for passing around a signature pack.
+template <typename... Signatures>
+struct deferred_signatures
+{
+};
+
+namespace detail {
+
+template <typename SignaturePack1, typename SignaturePack2>
+struct cat_deferred_signatures;
+
+template <typename... Sigs1, typename... Sigs2>
+struct cat_deferred_signatures<
+    deferred_signatures<Sigs1...>,
+    deferred_signatures<Sigs2...> >
+{
+  typedef deferred_signatures<Sigs1..., Sigs2...> type;
+};
+
+template <typename... SignaturePacks>
+struct merge_deferred_signatures;
+
+template <typename Head1, typename... Tail1>
+struct merge_deferred_signatures<
+    deferred_signatures<Head1, Tail1...> >
+{
+  typedef deferred_signatures<Head1, Tail1...> type;
+};
+
+template <typename Head1, typename... Tail1>
+struct merge_deferred_signatures<
+    deferred_signatures<Head1, Tail1...>,
+    deferred_signatures<> >
+{
+  typedef deferred_signatures<Head1, Tail1...> type;
+};
+
+template <typename Head2, typename... Tail2>
+struct merge_deferred_signatures<
+    deferred_signatures<>,
+    deferred_signatures<Head2, Tail2...> >
+{
+  typedef deferred_signatures<Head2, Tail2...> type;
+};
+
+template <typename Head1, typename... Tail1>
+struct merge_deferred_signatures<
+    deferred_signatures<Head1, Tail1...>,
+    deferred_signatures<Head1> >
+{
+  typedef deferred_signatures<Head1, Tail1...> type;
+};
+
+template <typename Head1, typename... Tail1, typename Head2>
+struct merge_deferred_signatures<
+    deferred_signatures<Head1, Tail1...>,
+    deferred_signatures<Head2> > :
+  cat_deferred_signatures<
+    deferred_signatures<Head1>,
+    typename merge_deferred_signatures<
+      deferred_signatures<Tail1...>,
+      deferred_signatures<Head2>
+    >::type
+  >
+{
+};
+
+template <typename Head1, typename...Tail1, typename Head2, typename... Tail2>
+struct merge_deferred_signatures<
+    deferred_signatures<Head1, Tail1...>,
+    deferred_signatures<Head2, Tail2...> > :
+  merge_deferred_signatures<
+    typename merge_deferred_signatures<
+      deferred_signatures<Head1, Tail1...>,
+      deferred_signatures<Head2>
+    >::type,
+    deferred_signatures<Tail2...>
+  >
+{
+};
+
+template <typename Sigs1, typename Sigs2, typename... SigsN>
+struct merge_deferred_signatures<Sigs1, Sigs2, SigsN...> :
+  merge_deferred_signatures<
+    typename merge_deferred_signatures<Sigs1, Sigs2>::type,
+    SigsN...
+  >
+{
+};
+
+} // namespace detail
+
+#if defined(ASIO_HAS_CONCEPTS)
+
+namespace detail {
+
+template <typename T, typename SignaturePack>
+struct is_completion_token_for_deferred_signatures : false_type
+{
+};
+
+template <typename T, typename... Signatures>
+struct is_completion_token_for_deferred_signatures<
+    T, deferred_signatures<Signatures...> >
+  : integral_constant<bool, completion_token_for<T, Signatures...> >
+{
+};
+
+} // namespace detail
+
+template <typename T, typename SignaturePack>
+ASIO_CONCEPT completion_token_for_deferred_signatures =
+  detail::is_completion_token_for_deferred_signatures<T, SignaturePack>::value;
+
+#define ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS(sig) \
+  ::asio::experimental::completion_token_for_deferred_signatures<sig>
+#define ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS2(sig0, sig1) \
+  ::asio::completion_token_for_deferred_signatures<sig0, sig1>
+#define ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS3(sig0, sig1, sig2) \
+  ::asio::completion_token_for_deferred_signatures<sig0, sig1, sig2>
+
+#else // defined(ASIO_HAS_CONCEPTS)
+
+#define ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS(sig) \
+  typename
+#define ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS2(sig0, sig1) \
+  typename
+#define ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS3(sig0, sig1, sig2) \
+  typename
+
+#endif // defined(ASIO_HAS_CONCEPTS)
+
 namespace detail {
 
 // Helper trait for getting the completion signature from an async operation.
 
-struct deferred_signature_probe {};
+struct deferred_signatures_probe {};
 
-template <typename T>
-struct deferred_signature_probe_result
+template <typename... Signatures>
+struct deferred_signatures_probe_result
 {
-  typedef T type;
+  typedef deferred_signatures<Signatures...> type;
 };
 
 template <typename T>
-struct deferred_signature
+struct deferred_signatures_for
 {
   typedef typename decltype(
-      declval<T>()(declval<deferred_signature_probe>()))::type type;
+      declval<T>()(declval<deferred_signatures_probe>()))::type type;
 };
 
 // Helper trait for getting the completion signature of the tail in a sequence
 // when invoked with the specified arguments.
 
 template <typename HeadSignature, typename Tail>
-struct deferred_sequence_signature;
+struct deferred_sequence_signatures_1;
 
 template <typename R, typename... Args, typename Tail>
-struct deferred_sequence_signature<R(Args...), Tail>
+struct deferred_sequence_signatures_1<R(Args...), Tail>
 {
   static_assert(
       !is_same<decltype(declval<Tail>()(declval<Args>()...)), void>::value,
@@ -66,7 +198,18 @@ struct deferred_sequence_signature<R(Args...), Tail>
 
   typedef typename decltype(
       declval<Tail>()(declval<Args>()...)(
-        declval<deferred_signature_probe>()))::type type;
+        declval<deferred_signatures_probe>()))::type type;
+};
+
+template <typename SignaturePack, typename Tail>
+struct deferred_sequence_signatures;
+
+template <typename... Signatures, typename Tail>
+struct deferred_sequence_signatures<deferred_signatures<Signatures...>, Tail>
+{
+  typedef typename detail::merge_deferred_signatures<
+      typename deferred_sequence_signatures_1<Signatures, Tail>::type...
+    >::type type;
 };
 
 // Completion handler for the head component of a deferred sequence.
@@ -234,7 +377,7 @@ struct is_deferred<deferred_values<Values...> > : true_type
 #endif // !defined(GENERATING_DOCUMENTATION)
 
 /// Encapsulates a deferred asynchronous operation.
-template <typename Signature, typename Initiation, typename... InitArgs>
+template <typename SignaturePack, typename Initiation, typename... InitArgs>
 class ASIO_NODISCARD deferred_async_operation
 {
 private:
@@ -242,12 +385,13 @@ private:
   typedef std::tuple<typename decay<InitArgs>::type...> init_args_t;
   init_args_t init_args_;
 
-  template <typename CompletionToken, std::size_t... I>
-  decltype(auto) invoke_helper(
-      ASIO_MOVE_ARG(CompletionToken) token,
-      std::index_sequence<I...>)
+  template <typename... S,
+      ASIO_COMPLETION_TOKEN_FOR(S...) CompletionToken,
+      std::size_t... I>
+  decltype(auto) invoke_helper(deferred_signatures<S...>,
+      ASIO_MOVE_ARG(CompletionToken) token, std::index_sequence<I...>)
   {
-    return asio::async_initiate<CompletionToken, Signature>(
+    return asio::async_initiate<CompletionToken, S...>(
         ASIO_MOVE_CAST(typename decay<Initiation>::type)(initiation_),
         token, std::get<I>(ASIO_MOVE_CAST(init_args_t)(init_args_))...);
   }
@@ -265,17 +409,21 @@ public:
   }
 
   /// Initiate the asynchronous operation using the supplied completion token.
-  template <ASIO_COMPLETION_TOKEN_FOR(Signature) CompletionToken>
+  template <
+      ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS(SignaturePack)
+        CompletionToken>
   decltype(auto) operator()(
       ASIO_MOVE_ARG(CompletionToken) token) ASIO_RVALUE_REF_QUAL
   {
-    return this->invoke_helper(
+    return this->invoke_helper(SignaturePack{},
         ASIO_MOVE_CAST(CompletionToken)(token),
         std::index_sequence_for<InitArgs...>());
   }
 
 #if defined(ASIO_HAS_REF_QUALIFIED_FUNCTIONS)
-  template <ASIO_COMPLETION_TOKEN_FOR(Signature) CompletionToken>
+  template <
+      ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS(SignaturePack)
+        CompletionToken>
   decltype(auto) operator()(
       ASIO_MOVE_ARG(CompletionToken) token) const &
   {
@@ -286,9 +434,10 @@ public:
 };
 
 #if !defined(GENERATING_DOCUMENTATION)
-template <typename Signature, typename Initiation, typename... InitArgs>
+template <typename SignaturePack, typename Initiation, typename... InitArgs>
 struct is_deferred<
-    deferred_async_operation<Signature, Initiation, InitArgs...> > : true_type
+    deferred_async_operation<SignaturePack, Initiation, InitArgs...> > :
+  true_type
 {
 };
 #endif // !defined(GENERATING_DOCUMENTATION)
@@ -298,9 +447,19 @@ template <typename Head, typename Tail>
 class ASIO_NODISCARD deferred_sequence
 {
 private:
-  typedef typename detail::deferred_sequence_signature<
-    typename detail::deferred_signature<Head>::type, Tail>::type
-      signature;
+  typedef typename detail::deferred_sequence_signatures<
+    typename detail::deferred_signatures_for<Head>::type, Tail>::type
+      signatures;
+
+  template <typename... S,
+      ASIO_COMPLETION_TOKEN_FOR(S...) CompletionToken>
+  decltype(auto) invoke_helper(deferred_signatures<S...>,
+      ASIO_MOVE_ARG(CompletionToken) token)
+  {
+    return asio::async_initiate<CompletionToken, S...>(
+        initiate(), token, ASIO_MOVE_OR_LVALUE(Head)(head_),
+        ASIO_MOVE_OR_LVALUE(Tail)(tail_));
+  }
 
 public:
   template <typename H, typename T>
@@ -311,17 +470,20 @@ public:
   {
   }
 
-  template <ASIO_COMPLETION_TOKEN_FOR(signature) CompletionToken>
+  template <
+      ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS(signatures)
+        CompletionToken>
   decltype(auto) operator()(
       ASIO_MOVE_ARG(CompletionToken) token) ASIO_RVALUE_REF_QUAL
   {
-    return asio::async_initiate<CompletionToken, signature>(
-        initiate(), token, ASIO_MOVE_OR_LVALUE(Head)(head_),
-        ASIO_MOVE_OR_LVALUE(Tail)(tail_));
+    return this->invoke_helper(signatures{},
+        ASIO_MOVE_CAST(CompletionToken)(token));
   }
 
 #if defined(ASIO_HAS_REF_QUALIFIED_FUNCTIONS)
-  template <ASIO_COMPLETION_TOKEN_FOR(signature) CompletionToken>
+  template <
+      ASIO_COMPLETION_TOKEN_FOR_DEFERRED_SIGS(signatures)
+        CompletionToken>
   decltype(auto) operator()(
       ASIO_MOVE_ARG(CompletionToken) token) const &
   {
